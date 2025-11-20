@@ -15,7 +15,7 @@
 按照以下步骤来设置并运行项目。
 ### 1. 克隆项目
 ```bash
-git clone 
+git clone https://github.com/HeiYunxi/VisionAssistance.git
 cd frontend
 ```
 ### 2. 安装依赖
@@ -72,7 +72,7 @@ app.config.globalProperties.$baseUrl = 'http://127.0.0.1:8080/'
 ### 1. 克隆项目
 首先，将项目代码克隆到本地：
 ```bash
-git clone 
+git clone https://github.com/HeiYunxi/VisionAssistance.git
 cd backEndTest
 ```
 ### 2. 导入项目
