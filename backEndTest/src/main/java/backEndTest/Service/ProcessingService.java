@@ -106,13 +106,12 @@ public class ProcessingService {
         String uuid = UUID.randomUUID().toString();
         String originalFilename = file.getOriginalFilename();
         // 获取原始后缀 (例如 .webm)
-//        String originalExtension = originalFilename != null && originalFilename.contains(".")
-//                ? originalFilename.substring(originalFilename.lastIndexOf("."))
-//                : ".webm";
+        String originalExtension = originalFilename != null && originalFilename.contains(".")
+                ? originalFilename.substring(originalFilename.lastIndexOf("."))
+                : ".webm";
 
         // 3. 定义原始文件路径和目标 WAV 文件路径
-        // 使用绝对路径以确保 FFmpeg 能正确找到文件
-        Path inputFilePath = uploadPath.resolve(uuid + ".webm").toAbsolutePath();
+        Path inputFilePath = uploadPath.resolve(uuid + originalExtension).toAbsolutePath();
         Path outputFilePath = uploadPath.resolve(uuid + ".wav").toAbsolutePath();
 
         // 4. 保存原始文件到磁盘

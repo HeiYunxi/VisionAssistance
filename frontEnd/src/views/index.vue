@@ -106,7 +106,7 @@ const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecogni
 const recognition = new SpeechRecognition();
 recognition.continuous = true;
 recognition.interimResults = false;
-recognition.lang = 'zh-CN';
+recognition.lang = 'en-us';
 
 recognition.onstart = () => console.log("语音识别服务已启动。");
 recognition.onend = () => console.log("语音识别服务已结束。");
@@ -186,7 +186,7 @@ async function sendDataToBackend(imageFile, audioBlob) {
     // 3. 将音频 Blob 添加到 FormData 中
     // 'audio' 是后端接口接收音频的字段名，根据后端API进行修改
     // 'recording.wav' 是文件名，后端可能会用到
-    formData.append('audio', audioBlob, 'recording.wav');
+    formData.append('audio', audioBlob, 'recording.webm');
 
     try {
         // 4. 使用 fetch 发送 POST 请求到你的后端
