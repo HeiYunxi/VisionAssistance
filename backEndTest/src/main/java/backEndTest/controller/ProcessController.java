@@ -36,7 +36,7 @@ public class ProcessController {
             ProcessedData data = processingService.processMedia(imageFile, audioFile);
             ApiResponse<ProcessedData> successResponse = ApiResponse.success(data);
             return ResponseEntity.ok(successResponse);
-        } catch (IOException e) {
+        } catch (IOException | InterruptedException e) {
             log.error("文件处理失败", e);
             ApiResponse<ProcessedData> errorResponse = ApiResponse.error(1002, "文件处理失败：" + e.getMessage());
             return ResponseEntity.internalServerError().body(errorResponse);

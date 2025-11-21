@@ -15,8 +15,8 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         // 将 /files/** 的请求映射到本地的 uploads 目录
-        registry.addResourceHandler("/Files/**")
-                .addResourceLocations("file:Files/");
+//        registry.addResourceHandler("/Files/**").addResourceLocations("file:Files/");
+        registry.addResourceHandler("/uploads/**").addResourceLocations("file:uploads/");
     }
 
     @Override
