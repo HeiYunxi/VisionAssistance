@@ -8,7 +8,7 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 export default defineConfig({
   plugins: [
     vue(),
-    vueDevTools(), //vue开发工具 页面下方图标
+    // vueDevTools(), //vue开发工具 页面下方图标
   ],
   resolve: {
     alias: {
