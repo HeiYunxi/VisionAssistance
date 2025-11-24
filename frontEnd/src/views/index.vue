@@ -1,5 +1,19 @@
 <template>
+
+    <header class="header">
+        <div class="header-content">
+            <button @click="navigateToYolo" class="nav-button">
+                Navigate To Main
+            </button>
+            <h1>YOLO Vehicle Detection Console</h1>
+            <div class="header-actions">
+
+            </div>
+        </div>
+    </header>
+
     <div class="page">
+
         <el-row :gutter="15">
 
             <!-- left chat -->
@@ -16,8 +30,8 @@
 
                         <div v-else class="v3ai__chatbot-intro">
                             <i class="logo iconfont ai-deepseek"></i>
-                            <h3 class="name"><span class="txt text-gradient">嗨~ </span></h3>
-                            <p class="desc">请把你的任务交给我吧~</p>
+                            <h3 class="name"><span class="txt text-gradient">HI~ </span></h3>
+                            <p class="desc">wellcome~</p>
                             <!-- 显示识别到的文字 -->
                             <p class="desc">{{ transcript }}</p>
                         </div>
@@ -25,7 +39,8 @@
                         <!-- controls -->
                         <el-footer>
                             <div class="controls">
-                                <el-button @click="toggleRecording" :class="{ 'recording': isRecording }" type="primary">
+                                <el-button @click="toggleRecording" :class="{ 'recording': isRecording }"
+                                    type="primary">
                                     {{ isRecording ? 'Stop Recording' : 'Start Recording' }}
                                 </el-button>
                             </div>
@@ -50,10 +65,12 @@
                         <div class="media-container">
                             <!-- 显示截图的img -->
                             <img v-show="!isProcessing && resultImageUrl" :src="resultImageUrl" alt="Result Image" />
-                            
+
                             <!-- 加载状态覆盖层 -->
                             <div v-if="isProcessing" class="processing-overlay">
-                                <el-icon class="is-loading"><Loading /></el-icon>
+                                <el-icon class="is-loading">
+                                    <Loading />
+                                </el-icon>
                                 <span>Processing...</span>
                             </div>
                         </div>
@@ -61,7 +78,7 @@
                 </el-row>
 
                 <!-- console display -->
-                 <!-- <el-row class="outputRow" :gutter="10">
+                <!-- <el-row class="outputRow" :gutter="10">
                     <div class="console">
                         <div>
                             row computing process
@@ -79,6 +96,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { Loading } from '@element-plus/icons-vue';
+import { useRouter } from 'vue-router'
 
 // --- Vue Refs ---
 const video = ref(null);
@@ -91,6 +109,7 @@ const isProcessing = ref(false);
 const capturedImageUrl = ref('');
 const resultImageUrl = ref('');
 const resultAudioUrl = ref('');
+const router = useRouter()
 
 // --- Media & Recognition instances ---
 let videoStream = null;
@@ -145,10 +164,18 @@ function captureInitialImage() {
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video.value, 0, 0, canvas.width, canvas.height);
     const imageDataUrl = canvas.toDataURL('image/jpeg');
-    
+
     capturedImageUrl.value = imageDataUrl;
     resultImageUrl.value = imageDataUrl;
     console.log("已捕获初始截图并显示。尺寸:", canvas.width, "x", canvas.height);
+}
+
+const navigateToYolo = () => {
+    // Direct navigation (change URL as needed)
+    //   window.location.href = 'yolo'
+
+    // If using Vue Router (uncomment and adjust route)
+    router.push('/yolo')
 }
 
 // --- 发送图片和音频到后端并接收返回结果的函数 ---
@@ -156,7 +183,7 @@ async function sendDataToBackend(imageFile, audioBlob) {
     console.log(">>> [API] 准备发送数据到后端...");
     console.log(">>> [API] 图片文件:", imageFile);
     console.log(">>> [API] 音频Blob:", audioBlob);
-    
+
     // --- 模拟后端处理 ---
     /*
     return new Promise((resolve, reject) => {
@@ -170,19 +197,19 @@ async function sendDataToBackend(imageFile, audioBlob) {
         }, 3000);
     });
     */
-    
-    
+
+
     // =================================================================
     // ======================= 真实的后端请求代码 =======================
     // =================================================================
-    
+
     // 1. 创建一个 FormData 对象来打包文件数据
     const formData = new FormData();
-    
+
     // 2. 将图片文件添加到 FormData 中
     // 'image' 是后端接口接收图片的字段名，根据后端API进行修改
     formData.append('image', imageFile);
-    
+
     // 3. 将音频 Blob 添加到 FormData 中
     // 'audio' 是后端接口接收音频的字段名，根据后端API进行修改
     // 'recording.wav' 是文件名，后端可能会用到
@@ -217,7 +244,7 @@ async function sendDataToBackend(imageFile, audioBlob) {
         console.error(">>> [API] 发送数据到后端失败:", error);
         throw error;
     }
-    
+
 }
 
 
@@ -242,9 +269,9 @@ async function processDataWithBackend() {
         const imageBlob = await imageResponse.blob();
         const imageFile = new File([imageBlob], "capture.jpg", { type: "image/jpeg" });
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        
+
         const { imageUrl, audioUrl } = await sendDataToBackend(imageFile, audioBlob);
-        
+
         resultImageUrl.value = imageUrl;
         resultAudioUrl.value = audioUrl;
 
@@ -294,7 +321,7 @@ async function toggleRecording() {
             alert("音频未初始化，请刷新页面并检查麦克风权限。");
             return;
         }
-        
+
         if (videoMetadataLoadedPromise) {
             console.log("--- 流程：等待视频元数据加载...");
             await videoMetadataLoadedPromise;
@@ -407,8 +434,8 @@ function onVideoMetadataLoaded() {
 .page {
     padding: 20px 20px;
     box-sizing: border-box;
-    min-height: 100vh;
-    background-color: #575871;
+    min-height: 94.35vh;
+    background: #111827;
     display: flex;
 }
 
@@ -416,19 +443,123 @@ function onVideoMetadataLoaded() {
     flex-grow: 1;
 }
 
+/* Header - Desktop App Bar */
+.header {
+    height: 64px;
+    background-color: #1f2937;
+    /* Slate-800 */
+    border-bottom: 1px solid #374151;
+    /* Slate-700 */
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    flex-shrink: 0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+}
+
+.header-content {
+    width: 100%;
+    max-width: 1800px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header h1 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #f3f4f6;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Header Actions Container */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+/* Navigation Button Style */
+.nav-button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.nav-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.nav-button:active {
+    transform: translateY(0);
+}
+
+.connection-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #111827;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid #374151;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #ef4444;
+    box-shadow: 0 0 8px #ef4444;
+    transition: all 0.3s ease;
+}
+
+.status-indicator.connected {
+    background-color: #10b981;
+    box-shadow: 0 0 8px #10b981;
+}
+
 .chatcol {
     display: flex;
+
     flex-direction: column;
 }
 
 .chatblock {
     width: 100%;
     padding: 10px 20px;
-    background-color: #ffffff;
+    background: #374151;
+    border: 1px solid #374151;
     border-radius: 15px;
     justify-content: center;
     height: 100%;
     box-sizing: border-box;
+}
+
+.name {
+    color: #ffffff;
+}
+
+.desc {
+    color: #c5c5c5;
+
 }
 
 .el-container {
@@ -456,9 +587,11 @@ function onVideoMetadataLoaded() {
     background-color: #000;
     position: relative;
 
-     display: flex;
-    justify-content: center; /* 水平居中 */
-    align-items: center;     /* 垂直居中 */
+    display: flex;
+    justify-content: center;
+    /* 水平居中 */
+    align-items: center;
+    /* 垂直居中 */
 }
 
 .media-container video,
@@ -466,7 +599,7 @@ function onVideoMetadataLoaded() {
     width: 100%;
     /* height: 100%;
     object-fit: cover; */
-      height: auto;
+    height: auto;
     max-height: 100%;
 }
 

@@ -9,10 +9,16 @@
 
     <header class="header">
       <div class="header-content">
+        <button @click="navigateToMain" class="nav-button">
+          Navigate To Yolo
+        </button>
         <h1>YOLO Vehicle Detection Console</h1>
-        <div class="connection-status">
-          <div class="status-indicator" :class="{ connected: isConnected }"></div>
-          <span>{{ connectionStatus }}</span>
+        <div class="header-actions">
+
+          <div class="connection-status">
+            <div class="status-indicator" :class="{ connected: isConnected }"></div>
+            <span>{{ connectionStatus }}</span>
+          </div>
         </div>
       </div>
     </header>
@@ -101,6 +107,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 
 const API_BASE = 'http://127.0.0.1:5000'
 
@@ -110,6 +117,7 @@ const isVideoLoaded = ref(false)
 const videoStatus = ref('Connecting to video stream...')
 const connectionStatus = ref('Connecting...')
 const audioEnabled = ref(false)
+const router = useRouter()
 
 const stats = ref({
   vehicleCount: 0,
@@ -144,19 +152,28 @@ audioHigh.loop = true
 
 let lastAlertLevel = -1
 
+// Page navigation function
+const navigateToMain = () => {
+  // Direct navigation (change URL as needed)
+  // window.location.href = '/'
+
+  // If using Vue Router (uncomment and adjust route)
+  router.push('/')
+}
+
 // Unlock all audio contexts simultaneously
 const enableAudio = async () => {
   try {
     // Play and immediately pause each audio object to unlock browser restrictions
     await audioNormal.play(); audioNormal.pause(); audioNormal.currentTime = 0;
-    await audioMid.play();    audioMid.pause();    audioMid.currentTime = 0;
-    await audioHigh.play();   audioHigh.pause();   audioHigh.currentTime = 0;
+    await audioMid.play(); audioMid.pause(); audioMid.currentTime = 0;
+    await audioHigh.play(); audioHigh.pause(); audioHigh.currentTime = 0;
 
     audioEnabled.value = true;
     console.log("All audio channels unlocked");
-    
+
     // Reset state to trigger immediate evaluation
-    lastAlertLevel = -1; 
+    lastAlertLevel = -1;
   } catch (e) {
     console.error("Audio unlock failed, please check file paths:", e);
   }
@@ -187,8 +204,8 @@ const handleAudioAlert = (currentLevel) => {
 
   // 1. Stop all audio
   audioNormal.pause(); audioNormal.currentTime = 0;
-  audioMid.pause();    audioMid.currentTime = 0;
-  audioHigh.pause();   audioHigh.currentTime = 0;
+  audioMid.pause(); audioMid.currentTime = 0;
+  audioHigh.pause(); audioHigh.currentTime = 0;
 
   // 2. Play corresponding audio
   try {
@@ -221,7 +238,7 @@ const fetchDetectionData = async () => {
       // Determine level based on vehicle count
       const count = data.vehicle_count
       let newAlertLevel = 0
-      
+
       if (count > 7) {
         newAlertLevel = 2
       } else if (count >= 2) {
@@ -337,12 +354,15 @@ onUnmounted(() => {
 .detection-dashboard {
   height: 100vh;
   width: 100vw;
-  background-color: #111827; /* Tailwind Slate-900 */
-  color: #e5e7eb; /* Tailwind Slate-200 */
+  background-color: #111827;
+  /* Tailwind Slate-900 */
+  color: #e5e7eb;
+  /* Tailwind Slate-200 */
   display: flex;
   flex-direction: column;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  overflow: hidden; /* Prevent body scroll */
+  overflow: hidden;
+  /* Prevent body scroll */
 }
 
 /* Audio Overlay - Modal Style */
@@ -371,7 +391,8 @@ onUnmounted(() => {
 .audio-prompt h1 {
   font-size: 1.8rem;
   margin-bottom: 0.5rem;
-  color: #60a5fa; /* Blue accent */
+  color: #60a5fa;
+  /* Blue accent */
 }
 
 .audio-prompt p {
@@ -379,15 +400,24 @@ onUnmounted(() => {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Header - Desktop App Bar */
 .header {
   height: 64px;
-  background-color: #1f2937; /* Slate-800 */
-  border-bottom: 1px solid #374151; /* Slate-700 */
+  background-color: #1f2937;
+  /* Slate-800 */
+  border-bottom: 1px solid #374151;
+  /* Slate-700 */
   display: flex;
   align-items: center;
   padding: 0 24px;
@@ -413,6 +443,39 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+/* Header Actions Container */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* Navigation Button Style */
+.nav-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.nav-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.nav-button:active {
+  transform: translateY(0);
 }
 
 .connection-status {
@@ -445,14 +508,16 @@ onUnmounted(() => {
 .main-content {
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr 400px; /* Video Area | Control Sidebar */
+  grid-template-columns: 1fr 400px;
+  /* Video Area | Control Sidebar */
   gap: 24px;
   padding: 24px;
   max-width: 1800px;
   margin: 0 auto;
   width: 100%;
   box-sizing: border-box;
-  overflow: hidden; /* Prevent internal scroll issues */
+  overflow: hidden;
+  /* Prevent internal scroll issues */
 }
 
 /* Left Column: Video Feed */
@@ -470,7 +535,8 @@ onUnmounted(() => {
   position: relative;
   width: 100%;
   height: 100%;
-  max-height: calc(100vh - 112px); /* Viewport height - header - padding */
+  max-height: calc(100vh - 112px);
+  /* Viewport height - header - padding */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -481,7 +547,8 @@ onUnmounted(() => {
 .video-container img {
   width: 100%;
   height: 100%;
-  object-fit: contain; /* Preserve aspect ratio */
+  object-fit: contain;
+  /* Preserve aspect ratio */
 }
 
 .video-placeholder {
@@ -510,21 +577,26 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  overflow-y: auto; /* Scroll controls if window is short */
-  padding-right: 8px; /* Space for scrollbar */
+  overflow-y: auto;
+  /* Scroll controls if window is short */
+  padding-right: 8px;
+  /* Space for scrollbar */
 }
 
 /* Scrollbar styling for sidebar */
 .control-panel::-webkit-scrollbar {
   width: 6px;
 }
+
 .control-panel::-webkit-scrollbar-track {
   background: #111827;
 }
+
 .control-panel::-webkit-scrollbar-thumb {
   background: #374151;
   border-radius: 3px;
 }
+
 .control-panel::-webkit-scrollbar-thumb:hover {
   background: #4b5563;
 }
@@ -545,7 +617,8 @@ h3 {
   font-size: 0.95rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #9ca3af; /* Muted text */
+  color: #9ca3af;
+  /* Muted text */
   font-weight: 600;
   border-bottom: 1px solid #374151;
   padding-bottom: 8px;
@@ -591,28 +664,42 @@ h3 {
 }
 
 .alert-status.level-0 {
-  background: rgba(16, 185, 129, 0.1); /* Green tint */
+  background: rgba(16, 185, 129, 0.1);
+  /* Green tint */
   color: #34d399;
   border-left-color: #34d399;
 }
 
 .alert-status.level-1 {
-  background: rgba(245, 158, 11, 0.1); /* Orange tint */
+  background: rgba(245, 158, 11, 0.1);
+  /* Orange tint */
   color: #fbbf24;
   border-left-color: #fbbf24;
 }
 
 .alert-status.level-2 {
-  background: rgba(239, 68, 68, 0.1); /* Red tint */
+  background: rgba(239, 68, 68, 0.1);
+  /* Red tint */
   color: #f87171;
   border-left-color: #f87171;
   animation: borderPulse 2s infinite;
 }
 
 @keyframes borderPulse {
-  0% { border-left-color: #f87171; background: rgba(239, 68, 68, 0.1); }
-  50% { border-left-color: #ef4444; background: rgba(239, 68, 68, 0.25); }
-  100% { border-left-color: #f87171; background: rgba(239, 68, 68, 0.1); }
+  0% {
+    border-left-color: #f87171;
+    background: rgba(239, 68, 68, 0.1);
+  }
+
+  50% {
+    border-left-color: #ef4444;
+    background: rgba(239, 68, 68, 0.25);
+  }
+
+  100% {
+    border-left-color: #f87171;
+    background: rgba(239, 68, 68, 0.1);
+  }
 }
 
 /* Config Section */
@@ -646,7 +733,8 @@ input[type="range"]::-webkit-slider-thumb {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #60a5fa; /* Blue thumb */
+  background: #60a5fa;
+  /* Blue thumb */
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -692,9 +780,11 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .history-list::-webkit-scrollbar {
   width: 4px;
 }
+
 .history-list::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .history-list::-webkit-scrollbar-thumb {
   background: #4b5563;
   border-radius: 2px;
@@ -741,13 +831,16 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Responsive adjustments for smaller laptop screens */
 @media (max-width: 1280px) {
   .main-content {
-    grid-template-columns: 1fr 320px; /* Shrink sidebar slightly */
+    grid-template-columns: 1fr 320px;
+    /* Shrink sidebar slightly */
   }
 }
 
@@ -758,12 +851,24 @@ input[type="range"]::-webkit-slider-thumb:hover {
     overflow-y: auto;
     height: auto;
   }
+
   .detection-dashboard {
     height: auto;
     overflow: auto;
   }
+
   .video-container {
     max-height: 50vh;
+  }
+
+  /* Responsive header for mobile */
+  .header-actions {
+    gap: 10px;
+  }
+
+  .nav-button {
+    padding: 8px 16px;
+    font-size: 13px;
   }
 }
 </style>
