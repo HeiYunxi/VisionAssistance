@@ -67,6 +67,24 @@ def stream():
             time.sleep(0.01)  # Limit stream frame rate to save bandwidth
 
     return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+@app.route('/stream/raw')
+def raw_stream():
+    """原始摄像头流，不带检测框"""
+    def gen_frames():
+        while True:
+            frame = main_app.get_latest_frame()
+            if frame is None:
+                time.sleep(0.05)
+                continue
+            try:
+                ret, jpg = cv2.imencode('.jpg', frame)
+                if ret:
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + jpg.tobytes() + b'\r\n')
+            except Exception:
+                pass
+            time.sleep(0.033)  # ~30 FPS
+    return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/api/config', methods=['GET', 'POST'])
 def config():

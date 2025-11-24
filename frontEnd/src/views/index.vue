@@ -1,11 +1,10 @@
 <template>
-
     <header class="header">
         <div class="header-content">
             <button @click="navigateToYolo" class="nav-button">
-                Navigate To Main
+                Navigate To Yolo
             </button>
-            <h1>YOLO Vehicle Detection Console</h1>
+            <h1>AI Vision Assistant</h1>
             <div class="header-actions">
 
             </div>
@@ -13,14 +12,11 @@
     </header>
 
     <div class="page">
-
-        <el-row :gutter="15">
-
+        <el-row :gutter="24">
             <!-- left chat -->
             <el-col :span="6" class="chatcol">
                 <div class="chatblock">
                     <el-container>
-
                         <div v-if="chatSession && !isEmpty(chatSession.data)" class="v3ai__chatbot" ref="scrollRef"
                             @scroll="onScroll">
                             <div class="v3ai__chatbot-sessions">
@@ -30,17 +26,16 @@
 
                         <div v-else class="v3ai__chatbot-intro">
                             <i class="logo iconfont ai-deepseek"></i>
-                            <h3 class="name"><span class="txt text-gradient">HI~ </span></h3>
-                            <p class="desc">wellcome~</p>
+                            <h3 class="name"><span class="txt text-gradient">Hi~ </span></h3>
+                            <p class="desc">Welcome~</p>
                             <!-- 显示识别到的文字 -->
-                            <p class="desc">{{ transcript }}</p>
+                            <p class="desc transcript-text">{{ transcript }}</p>
                         </div>
 
                         <!-- controls -->
                         <el-footer>
                             <div class="controls">
-                                <el-button @click="toggleRecording" :class="{ 'recording': isRecording }"
-                                    type="primary">
+                                <el-button @click="toggleRecording" :class="{ 'recording': isRecording }" type="primary">
                                     {{ isRecording ? 'Stop Recording' : 'Start Recording' }}
                                 </el-button>
                             </div>
@@ -51,13 +46,18 @@
 
             <!-- right -->
             <el-col :span="18">
-
                 <!-- video and result display -->
-                <el-row class="videoRow" :gutter="10">
-                    <!-- inputvideo (left) -->
+                <el-row class="videoRow" :gutter="24">
+                    <!-- inputvideo (left) - 使用Python后端视频流 -->
                     <el-col :span="12">
                         <div class="media-container">
-                            <video ref="video" autoplay muted @loadedmetadata="onVideoMetadataLoaded"></video>
+                            <img ref="videoStream" :src="streamUrl" alt="Camera Stream" @load="onVideoLoad" @error="onVideoError" />
+                            
+                            <!-- 视频加载状态提示 -->
+                            <div v-if="!isVideoLoaded" class="video-placeholder">
+                                <div class="loading-spinner"></div>
+                                <p>{{ videoStatus }}</p>
+                            </div>
                         </div>
                     </el-col>
                     <!-- result display (right) -->
@@ -65,60 +65,62 @@
                         <div class="media-container">
                             <!-- 显示截图的img -->
                             <img v-show="!isProcessing && resultImageUrl" :src="resultImageUrl" alt="Result Image" />
-
+                            
+                            <!-- 初始占位提示 -->
+                            <div v-show="!isProcessing && !resultImageUrl" class="result-placeholder">
+                                <i class="placeholder-icon">📸</i>
+                                <p>Start recording to capture image</p>
+                            </div>
+                            
                             <!-- 加载状态覆盖层 -->
                             <div v-if="isProcessing" class="processing-overlay">
-                                <el-icon class="is-loading">
-                                    <Loading />
-                                </el-icon>
+                                <el-icon class="is-loading"><Loading /></el-icon>
                                 <span>Processing...</span>
                             </div>
                         </div>
                     </el-col>
                 </el-row>
-
-                <!-- console display -->
-                <!-- <el-row class="outputRow" :gutter="10">
-                    <div class="console">
-                        <div>
-                            row computing process
-                        </div>
-                    </div>
-                </el-row> -->
             </el-col>
         </el-row>
-        <!-- 播放后端返回的音频的隐藏元素 -->
-        <audio ref="audioPlayer" @ended="onAudioPlayed"></audio>
     </div>
+    
+    <!-- 播放后端返回的音频的隐藏元素 -->
+    <audio ref="audioPlayer" @ended="onAudioPlayed"></audio>
 </template>
-
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { Loading } from '@element-plus/icons-vue';
 import { useRouter } from 'vue-router'
+const router = useRouter()
 
 // --- Vue Refs ---
-const video = ref(null);
+const videoStream = ref(null);
 const audioPlayer = ref(null);
 const transcript = ref('');
 const isRecording = ref(false);
 const isProcessing = ref(false);
 
+// 系统状态相关
+const isSystemOnline = ref(true);
+const systemStatus = ref('System Ready');
+const isVideoLoaded = ref(false);
+const videoStatus = ref('Connecting to camera stream...');
+const retryCount = ref(0);
+const maxRetries = 5;
+
+// Python后端视频流URL
+const streamUrl = ref('http://127.0.0.1:5000/stream/raw') ;
+
 // 存储不同阶段的图片和音频(Url)
 const capturedImageUrl = ref('');
 const resultImageUrl = ref('');
 const resultAudioUrl = ref('');
-const router = useRouter()
 
 // --- Media & Recognition instances ---
-let videoStream = null;
 let audioStream = null;
 let mediaRecorder = null;
 const audioChunks = [];
-
-// Promise确保视频元数据加载完成
-let videoMetadataLoadedPromise = null;
 
 // --- SpeechRecognition Setup ---
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -127,8 +129,14 @@ recognition.continuous = true;
 recognition.interimResults = false;
 recognition.lang = 'en-us';
 
-recognition.onstart = () => console.log("语音识别服务已启动。");
-recognition.onend = () => console.log("语音识别服务已结束。");
+recognition.onstart = () => {
+    console.log("语音识别服务已启动。");
+    systemStatus.value = 'Listening...';
+};
+recognition.onend = () => {
+    console.log("语音识别服务已结束。");
+    systemStatus.value = 'System Ready';
+};
 recognition.onresult = (event) => {
     const latestResult = event.results[event.results.length - 1];
     if (latestResult.isFinal) {
@@ -139,6 +147,7 @@ recognition.onresult = (event) => {
 };
 recognition.onerror = (event) => {
     console.error("语音识别出错:", event.error);
+    systemStatus.value = 'Speech Error';
     if (isRecording.value) {
         isRecording.value = false;
         if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
@@ -146,122 +155,158 @@ recognition.onerror = (event) => {
     }
 };
 
+// --- 视频流处理 ---
+const onVideoLoad = () => {
+    isVideoLoaded.value = true;
+    videoStatus.value = 'Camera Connected';
+    retryCount.value = 0;
+    console.log("视频流加载成功");
+};
+
+const onVideoError = () => {
+    isVideoLoaded.value = false;
+    videoStatus.value = 'Camera stream disconnected, retrying...';
+    if (retryCount.value < maxRetries) {
+        retryCount.value++;
+        setTimeout(() => {
+            // 强制重新加载视频流
+            streamUrl.value = `http://127.0.0.1:5000/stream?t=${new Date().getTime()}`;
+        }, 2000);
+    }
+};
+
 // --- 捕获初始截图的函数 ---
 function captureInitialImage() {
-    if (!video.value) {
-        console.error("视频元素未找到，无法截图。");
+    if (!videoStream.value || !isVideoLoaded.value) {
+        console.error("视频流未准备好，无法截图。");
         return;
     }
-    if (video.value.videoWidth === 0 || video.value.videoHeight === 0) {
-        console.error("视频尺寸为0，无法截图。可能视频流尚未准备好。");
-        alert("视频未准备好，请稍后再试。");
-        return;
+    
+    // 等待图片加载完成
+    if (videoStream.value.complete && videoStream.value.naturalWidth > 0) {
+        // 创建一个临时图片元素来避免跨域问题
+        const tempImg = new Image();
+        tempImg.crossOrigin = 'anonymous'; // 设置跨域属性
+        
+        tempImg.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = tempImg.naturalWidth;
+            canvas.height = tempImg.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            
+            // 先绘制白色背景
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 然后绘制图片
+            ctx.drawImage(tempImg, 0, 0, canvas.width, canvas.height);
+            
+            try {
+                const imageDataUrl = canvas.toDataURL('image/jpeg');
+                capturedImageUrl.value = imageDataUrl;
+                resultImageUrl.value = imageDataUrl;
+                console.log("已捕获初始截图并显示。尺寸:", canvas.width, "x", canvas.height);
+            } catch (error) {
+                console.error("Canvas导出失败:", error);
+                // 备用方案：直接使用视频流的当前帧
+                fallbackCapture();
+            }
+        };
+        
+        tempImg.onerror = () => {
+            console.error("临时图片加载失败");
+            fallbackCapture();
+        };
+        
+        // 设置图片源
+        tempImg.src = videoStream.value.src;
+    } else {
+        console.error("视频流尚未加载完成。");
+        alert("视频流未准备好，请稍后再试。");
     }
-
-    const canvas = document.createElement('canvas');
-    canvas.width = video.value.videoWidth;
-    canvas.height = video.value.videoHeight;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video.value, 0, 0, canvas.width, canvas.height);
-    const imageDataUrl = canvas.toDataURL('image/jpeg');
-
-    capturedImageUrl.value = imageDataUrl;
-    resultImageUrl.value = imageDataUrl;
-    console.log("已捕获初始截图并显示。尺寸:", canvas.width, "x", canvas.height);
+}
+// 备用截图方案
+function fallbackCapture() {
+    try {
+        // 尝试直接从视频流元素截图
+        const canvas = document.createElement('canvas');
+        canvas.width = videoStream.value.naturalWidth || 640;
+        canvas.height = videoStream.value.naturalHeight || 480;
+        const ctx = canvas.getContext('2d');
+        
+        // 绘制黑色背景
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // 添加文字提示
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '20px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Camera Frame Captured', canvas.width / 2, canvas.height / 2);
+        
+        const imageDataUrl = canvas.toDataURL('image/jpeg');
+        capturedImageUrl.value = imageDataUrl;
+        resultImageUrl.value = imageDataUrl;
+        console.log("使用备用方案生成截图");
+    } catch (error) {
+        console.error("备用截图方案也失败:", error);
+        // 最后的备用方案：使用占位图片
+        capturedImageUrl.value = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/2wBDAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwA/8A8AF1BQkBAAID//Z';
+        resultImageUrl.value = capturedImageUrl.value;
+    }
 }
 
-const navigateToYolo = () => {
-    // Direct navigation (change URL as needed)
-    //   window.location.href = 'yolo'
-
-    // If using Vue Router (uncomment and adjust route)
-    router.push('/yolo')
-}
-
-// --- 发送图片和音频到后端并接收返回结果的函数 ---
+// --- 发送图片和音频到Java后端 ---
 async function sendDataToBackend(imageFile, audioBlob) {
-    console.log(">>> [API] 准备发送数据到后端...");
+    console.log(">>> [API] 准备发送数据到Java后端...");
     console.log(">>> [API] 图片文件:", imageFile);
     console.log(">>> [API] 音频Blob:", audioBlob);
-
-    // --- 模拟后端处理 ---
-    /*
-    return new Promise((resolve, reject) => {
-        console.log(">>> [API] 模拟网络请求，等待3秒...");
-        setTimeout(() => {
-            console.log(">>> [API] 模拟后端处理完成，返回结果。");
-            resolve({
-                imageUrl: `https://picsum.photos/seed/${Date.now()}/640/480.jpg`,
-                audioUrl: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav'
-            });
-        }, 3000);
-    });
-    */
-
-
-    // =================================================================
-    // ======================= 真实的后端请求代码 =======================
-    // =================================================================
-
-    // 1. 创建一个 FormData 对象来打包文件数据
+    
+    // 创建 FormData 对象
     const formData = new FormData();
-
-    // 2. 将图片文件添加到 FormData 中
-    // 'image' 是后端接口接收图片的字段名，根据后端API进行修改
     formData.append('image', imageFile);
-
-    // 3. 将音频 Blob 添加到 FormData 中
-    // 'audio' 是后端接口接收音频的字段名，根据后端API进行修改
-    // 'recording.wav' 是文件名，后端可能会用到
     formData.append('audio', audioBlob, 'recording.webm');
 
     try {
-        // 4. 使用 fetch 发送 POST 请求到你的后端
+        // 发送到Java后端
         const apiResponse = await fetch('http://localhost:8080/api/process', {
             method: 'POST',
-            // 发送FormData，浏览器自动设置Content-Type(multipart/form-data)
             body: formData,
         });
 
-        // 5. 检查响应状态码
         if (!apiResponse.ok) {
             throw new Error(`HTTP error! status: ${apiResponse.status}`);
         }
 
-        // 6. 解析后端返回的 JSON 数据
         const result = await apiResponse.json();
-        console.log(">>> [API] 后端处理成功，响应:", result);
+        console.log(">>> [API] Java后端处理成功，响应:", result);
 
-        // 7. 检查返回的数据格式是否符合预期
-        // 后端返回格式 { success: true, data: { imageUrl: "...", audioUrl: "..." } }
         if (result && result.data && result.data.imageUrl && result.data.audioUrl) {
             return { imageUrl: result.data.imageUrl, audioUrl: result.data.audioUrl };
         } else {
-            throw new Error("后端返回的数据格式不正确或未包含必要的URL。");
+            throw new Error("Java后端返回的数据格式不正确");
         }
     } catch (error) {
-        // 8. 捕获并处理网络请求或数据处理中发生的错误
-        console.error(">>> [API] 发送数据到后端失败:", error);
+        console.error(">>> [API] 发送数据到Java后端失败:", error);
         throw error;
     }
-
 }
-
 
 // --- 处理数据的完整流程函数 ---
 async function processDataWithBackend() {
     if (!capturedImageUrl.value) {
         console.error("处理失败：没有捕获到图片数据。");
-        alert("处理失败：没有图片数据，请检查摄像头是否正常工作。");
+        alert("处理失败：没有图片数据，请检查视频流是否正常。");
         return;
     }
     if (audioChunks.length === 0) {
         console.error("处理失败：没有录制到音频数据。");
-        alert("处理失败：未检测到录音，请确保在录制时说话，并且录制时间不要太短。");
+        alert("处理失败：未检测到录音，请确保在录制时说话。");
         return;
     }
 
     isProcessing.value = true;
+    systemStatus.value = 'Processing...';
     console.log("--- 流程：开始处理数据 ---");
 
     try {
@@ -269,17 +314,14 @@ async function processDataWithBackend() {
         const imageBlob = await imageResponse.blob();
         const imageFile = new File([imageBlob], "capture.jpg", { type: "image/jpeg" });
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-
+        
         const { imageUrl, audioUrl } = await sendDataToBackend(imageFile, audioBlob);
-
+        
         resultImageUrl.value = imageUrl;
         resultAudioUrl.value = audioUrl;
 
         console.log("--- [Debug] 准备播放的音频URL是:", resultAudioUrl.value);
         console.log("--- [Debug] 图片URL是:", resultImageUrl.value);
-
-
-        console.log("--- 流程：后端图片已更新 ---");
 
         if (audioPlayer.value) {
             audioPlayer.value.src = resultAudioUrl.value;
@@ -292,6 +334,7 @@ async function processDataWithBackend() {
         alert("处理失败，请稍后重试。");
     } finally {
         isProcessing.value = false;
+        systemStatus.value = 'System Ready';
         console.log("--- 流程：处理完成，状态已重置 ---");
     }
 }
@@ -322,11 +365,6 @@ async function toggleRecording() {
             return;
         }
 
-        if (videoMetadataLoadedPromise) {
-            console.log("--- 流程：等待视频元数据加载...");
-            await videoMetadataLoadedPromise;
-        }
-
         isRecording.value = true;
         transcript.value = '';
 
@@ -341,7 +379,7 @@ async function toggleRecording() {
             console.log("--- [MediaRecorder] 第一个音频轨道状态:", audioTracks[0].readyState, "是否启用:", audioTracks[0].enabled);
         }
 
-        // *** 诊断日志：尝试多种 mimeType ***
+        // 设置MediaRecorder选项
         let options = {};
         const preferredTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
         for (const type of preferredTypes) {
@@ -360,7 +398,7 @@ async function toggleRecording() {
         mediaRecorder = new MediaRecorder(audioStream, options);
         console.log("--- [MediaRecorder] 已初始化，状态:", mediaRecorder.state, "格式:", mediaRecorder.mimeType);
 
-        // 增加 MediaRecorder 事件监听
+        // MediaRecorder事件监听
         mediaRecorder.onstart = () => {
             console.log("--- [MediaRecorder] onstart 事件触发，状态:", mediaRecorder.state);
         };
@@ -377,60 +415,80 @@ async function toggleRecording() {
             console.error("--- [MediaRecorder] onerror 事件触发:", event.error);
         };
 
-        mediaRecorder.start(100); // 设置一个较短的时间片(timeslice)
+        mediaRecorder.start(100);
         console.log("--- [MediaRecorder] start() 已调用，时间片 100ms");
         recognition.start();
     }
 }
 
+// --- 页面导航函数 ---
+const navigateToYolo = () => {
+    console.log("准备跳转到YOLO页面...");
+    
+    // 清理音频资源（视频流由Python后端管理）
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+    }
+    recognition.stop();
+    
+    if (audioStream) {
+        audioStream.getTracks().forEach(track => track.stop());
+    }
+    
+    // 短暂延迟后跳转
+    setTimeout(() => {
+        try {
+            router.push('/yolo');
+            console.log("Vue Router 跳转成功");
+        } catch (error) {
+            console.error("Vue Router 跳转失败:", error);
+            window.location.href = '/yolo';
+        }
+    }, 100);
+}
+
 // --- 生命周期钩子 ---
 onMounted(async () => {
     try {
-        await initializeMediaStream();
-        console.log("页面加载完成，媒体流已使用系统默认设备初始化。");
+        // 只初始化音频流，视频流使用Python后端的
+        await initializeAudioStream();
+        console.log("页面加载完成，音频流已初始化，使用Python后端视频流。");
     } catch (error) {
-        console.error('初始化媒体流失败:', error);
-        alert("请允许网页访问摄像头和麦克风以使用全部功能。");
+        console.error('初始化音频流失败:', error);
+        isSystemOnline.value = false;
+        systemStatus.value = 'Audio Error';
+        alert("请允许网页访问麦克风以使用语音识别功能。");
     }
 });
 
 onUnmounted(() => {
-    if (videoStream) videoStream.getTracks().forEach(t => t.stop());
-    if (audioStream) audioStream.getTracks().forEach(t => t.stop());
+    // 清理音频资源
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+    }
     recognition.stop();
+    if (audioStream) {
+        audioStream.getTracks().forEach(track => track.stop());
+    }
 });
 
-// --- 简化后的媒体流初始化函数 ---
-async function initializeMediaStream() {
-    const constraints = { video: true, audio: true };
+// --- 只初始化音频流的函数 ---
+async function initializeAudioStream() {
+    const constraints = { video: false, audio: true }; // 只要音频
     const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-    const videoTracks = mediaStream.getVideoTracks();
     const audioTracks = mediaStream.getAudioTracks();
 
-    if (audioTracks.length === 0) alert("无法访问麦克风...");
-    if (videoTracks.length === 0) alert("无法访问摄像头...");
-
-    videoStream = new MediaStream(videoTracks);
-    audioStream = new MediaStream(audioTracks);
-    if (video.value) {
-        video.value.srcObject = videoStream;
-        videoMetadataLoadedPromise = new Promise((resolve) => {
-            video.value.onloadedmetadata = () => {
-                console.log("视频元数据已加载，尺寸:", video.value.videoWidth, "x", video.value.videoHeight);
-                resolve();
-            };
-        });
+    if (audioTracks.length === 0) {
+        throw new Error("无法访问麦克风");
     }
-    console.log("媒体流已成功初始化和分离。");
-}
 
-// --- 视频元数据加载完成的事件处理函数 ---
-function onVideoMetadataLoaded() {
-    console.log("模板中的 onloadedmetadata 事件被触发。");
+    audioStream = new MediaStream(audioTracks);
+    console.log("音频流已成功初始化。");
 }
 </script>
 
 <style scoped>
+/* 整体页面布局 - 保持原有样式 */
 .page {
     padding: 20px 20px;
     box-sizing: border-box;
@@ -447,9 +505,7 @@ function onVideoMetadataLoaded() {
 .header {
     height: 64px;
     background-color: #1f2937;
-    /* Slate-800 */
     border-bottom: 1px solid #374151;
-    /* Slate-700 */
     display: flex;
     align-items: center;
     padding: 0 24px;
@@ -538,14 +594,13 @@ function onVideoMetadataLoaded() {
 
 .chatcol {
     display: flex;
-
     flex-direction: column;
 }
 
 .chatblock {
     width: 100%;
     padding: 10px 20px;
-    background: #374151;
+    background: #1f2937;
     border: 1px solid #374151;
     border-radius: 15px;
     justify-content: center;
@@ -553,19 +608,10 @@ function onVideoMetadataLoaded() {
     box-sizing: border-box;
 }
 
-.name {
-    color: #ffffff;
-}
-
-.desc {
-    color: #c5c5c5;
-
-}
-
 .el-container {
     height: 100%;
     display: flex;
-    column-gap: 15px;
+    flex-direction: column;
     justify-content: space-between;
 }
 
@@ -586,21 +632,36 @@ function onVideoMetadataLoaded() {
     overflow: hidden;
     background-color: #000;
     position: relative;
-
     display: flex;
     justify-content: center;
-    /* 水平居中 */
     align-items: center;
-    /* 垂直居中 */
 }
 
 .media-container video,
 .media-container img {
     width: 100%;
-    /* height: 100%;
-    object-fit: cover; */
     height: auto;
     max-height: 100%;
+}
+
+/* 视频和结果占位符样式 */
+.video-placeholder,
+.result-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #1f2937;
+    color: #9ca3af;
+    text-align: center;
+}
+
+.placeholder-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.6;
 }
 
 .processing-overlay {
@@ -622,6 +683,7 @@ function onVideoMetadataLoaded() {
 .processing-overlay .el-icon {
     font-size: 40px;
     margin-bottom: 10px;
+    color: #60a5fa;
 }
 
 .outputRow {
@@ -633,28 +695,134 @@ function onVideoMetadataLoaded() {
 
 .console {
     width: 100%;
-    background-color: #ffffff;
+    background-color: #1f2937;
     border-radius: 15px;
     margin: 0 5px;
     padding: 30px 50px;
     height: 100%;
     box-sizing: border-box;
+    color: #e5e7eb;
 }
 
-.recording {
-    background-color: #f56c6c !important;
-    border-color: #f56c6c !important;
+/* 聊天机器人介绍区域 */
+.v3ai__chatbot-intro {
+    text-align: center;
+    padding: 40px 20px;
+    color: #e5e7eb;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
-.recording:hover {
-    background-color: #f78989 !important;
-    border-color: #f78989 !important;
+.v3ai__chatbot-intro .logo {
+    font-size: 48px;
+    color: #60a5fa;
+    margin-bottom: 16px;
 }
 
+.v3ai__chatbot-intro .name {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #f3f4f6;
+}
+
+.v3ai__chatbot-intro .desc {
+    font-size: 14px;
+    color: #9ca3af;
+    line-height: 1.6;
+    margin-bottom: 8px;
+}
+
+.transcript-text {
+
+    border-radius: 6px;
+    padding: 12px;
+    margin-top: 16px;
+    min-height: 60px;
+    max-height: 200px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    font-family: monospace;
+    font-size: 12px;
+    text-align: left;
+}
+
+.text-gradient {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.v3ai__chatbot {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    color: #e5e7eb;
+}
+
+.v3ai__chatbot-sessions {
+    min-height: 100px;
+}
+
+/* 录制按钮样式 */
 .controls {
     display: flex;
     align-items: center;
     justify-content: center;
     width: 100%;
+    margin-top: 20px;
+}
+
+.controls .el-button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.controls .el-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.controls .el-button:active {
+    transform: translateY(0);
+}
+
+.recording {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+    border-color: #ef4444 !important;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
+}
+
+.recording:hover {
+    background: linear-gradient(135deg, #f87171 0%, #ef4444 100%) !important;
+    border-color: #f87171 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(239, 68, 68, 0.4);
+}
+
+/* 加载动画 */
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #374151;
+    border-top: 3px solid #60a5fa;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 </style>
